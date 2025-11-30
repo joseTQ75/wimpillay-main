@@ -1,0 +1,121 @@
+name: Flutter CI - Wimpillay Transportes
+
+on:
+  push: 
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Unit Tests
+        run: flutter test test/models/
+
+      - name: Verify Unit Tests Coverage
+        run: |
+          echo "✅ Pruebas unitarias completadas exitosamente"
+          echo "📊 Archivos probados:"
+          find test/models/ -name "*.dart" -exec basename {} \; | while read file; do
+            echo "   - $file"
+          done
+
+  integration-tests:
+    name: Integration Tests
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Integration Tests
+        run: flutter test integration_test/
+
+      - name: Integration Tests Report
+        run: |
+          echo "✅ Pruebas de integración completadas"
+          echo "🧪 Flujos probados:"
+          echo "   - Pantalla de inicio de la app"
+          echo "   - Pantalla de compra de tickets" 
+          echo "   - Interacción con contadores"
+          echo "   - Cálculo de totales"
+
+  build-android:
+    name: Build Android APK
+    needs: integration-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wimpillay-transportes-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      - name: Build Report
+        run: |
+          echo "🚀 BUILD EXITOSO"
+          echo "📱 APK generado: app-release.apk"
+          echo "📦 Tamaño aproximado: $(du -h build/app/outputs/flutter-apk/app-release.apk | cut -f1)"
+          echo "✅ Proceso de CI/CD completado"
+
+  success-notification:
+    name: Success Notification
+    needs: [unit-tests, integration-tests, build-android]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: CI/CD Status Report
+        run: |
+          if [ "${{ needs.unit-tests.result }}" == "success" ] && [ "${{ needs.integration-tests.result }}" == "success" ] && [ "${{ needs.build-android.result }}" == "success" ]; then
+            echo "🎉 TODAS LAS PRUEBAS PASARON - CI/CD COMPLETADO EXITOSAMENTE"
+            echo "📊 Resumen:"
+            echo "   ✅ Unit Tests: ${{ needs.unit-tests.result }}"
+            echo "   ✅ Integration Tests: ${{ needs.integration-tests.result }}"
+            echo "   ✅ Build Android: ${{ needs.build-android.result }}"
+          else
+            echo "❌ ALGUNAS PRUEBAS FALLARON"
+            echo "📊 Resumen:"
+            echo "   Unit Tests: ${{ needs.unit-tests.result }}"
+            echo "   Integration Tests: ${{ needs.integration-tests.result }}"
+            echo "   Build Android: ${{ needs.build-android.result }}"
+            exit 1
+          fi

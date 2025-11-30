@@ -96,6 +96,4 @@ class TextStyles {
     fontWeight: FontWeight.w600,
     fontFamily: 'Poppins',
   );
-
-
 }
